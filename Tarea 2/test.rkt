@@ -1,3 +1,187 @@
 #lang play
 
 (require "base.rkt")
+
+(test (parser '((deftype nat 
+          (O : nat)
+          (S : (nat -> nat)))
+       (O)))
+      (Program
+       (list
+        (DefType 'nat
+                 (list
+                  (Binding 'O (NoArgType 'nat))
+                  (Binding 'S (ArgType '(nat) 'nat)))))
+       (App 'O '()))
+      )
+
+(test (parser '((deftype bool 
+          (t : bool)
+          (f : bool))
+       (fun (x : bool) x)))
+      (Program
+       (list
+        (DefType 'bool
+                 (list
+                  (Binding 't (NoArgType 'bool))
+                  (Binding 'f (NoArgType 'bool)))))
+       (Fun (list (Binding 'x (NoArgType 'bool))) (Id 'x)))
+      )
+
+(test (parser '((deftype nat 
+               (O : nat)
+               (S : (nat -> nat)))
+             (deftype expr 
+               (num : (nat -> expr))
+               (add : (expr expr -> expr)))   
+             (add (num (S (O))) (num (O)))))
+      (Program
+       (list
+        (DefType 'nat
+                 (list
+                  (Binding 'O (NoArgType 'nat))
+                  (Binding 'S (ArgType '(nat) 'nat))))
+        (DefType 'expr
+                 (list
+                  (Binding 'num (ArgType '(nat) 'expr))
+                  (Binding 'add (ArgType '(expr expr) 'expr)))))
+       (App 'add (list (App 'num (list (App 'S (list (App 'O '()))))) (App 'num (list (App 'O '()))))))
+      )
+
+(test (parser '((deftype nat
+          (O : nat)
+          (S : (nat -> nat)))
+       (def pred (n : nat) : nat
+               (match n
+                 ((case (O) => (O))
+                  (case (S n1) => n1))))
+       (pred (S (O)))))
+      (Program
+       (list
+        (DefType 'nat
+                 (list
+                  (Binding 'O (NoArgType 'nat))
+                  (Binding 'S (ArgType '(nat) 'nat))))
+        (Deff 'pred
+              (list
+               (Binding 'n (NoArgType 'nat)))
+              'nat
+              (Match (Id 'n)
+                     (list
+                      (A-Case (IdPattern 'O) (App 'O '()))
+                      (A-Case (TypePattern 'S '(n1)) (Id 'n1))))))
+       (App 'pred (list (App 'S (list (App 'O '()))))))
+      )
+
+(test (parser '((deftype bool 
+          (t : bool)
+          (f : bool))
+       (def not (b : bool) : bool
+                (match b
+                 ((case (t) => (f)))))
+       (not (f))))
+      (Program
+       (list
+        (DefType 'bool
+                 (list
+                  (Binding 't (NoArgType 'bool))
+                  (Binding 'f (NoArgType 'bool))))
+        (Deff 'not
+              (list
+               (Binding 'b (NoArgType 'bool)))
+              'bool
+              (Match (Id 'b)
+                     (list
+                      (A-Case (IdPattern 't) (App 'f '()))))))
+       (App 'not (list (App 'f '()))))
+      )
+
+(test (parser '((deftype day 
+         (monday : day)
+         (tuesday : day)
+         (wednesday : day)
+         (thursday : day)
+         (friday : day)
+         (saturday : day)
+         (sunday : day))
+       (deftype bool
+         (t : bool)
+         (f : bool))
+       (def weekday (d : day) : bool
+         (match d
+           ((case (saturday) => (f))
+            (case (sunday) => (f))
+            (case otherday => (t)))))
+       (weekday (monday))))
+      (Program
+       (list
+        (DefType 'day
+                 (list
+                  (Binding 'monday (NoArgType 'day))
+                  (Binding 'tuesday (NoArgType 'day))
+                  (Binding 'wednesday (NoArgType 'day))
+                  (Binding 'thursday (NoArgType 'day))
+                  (Binding 'friday (NoArgType 'day))
+                  (Binding 'saturday (NoArgType 'day))
+                  (Binding 'sunday (NoArgType 'day))))
+        (DefType 'bool
+                 (list
+                  (Binding 't (NoArgType 'bool))
+                  (Binding 'f (NoArgType 'bool))))
+        (Deff 'weekday
+              (list
+               (Binding 'd (NoArgType 'day)))
+              'bool
+              (Match (Id 'd)
+                     (list
+                      (A-Case (IdPattern 'saturday) (App 'f '()))
+                      (A-Case (IdPattern 'sunday) (App 'f '()))
+                      (A-Case (Id 'otherday) (App 't '()))))))
+       (App 'weekday (list (App 'monday '()))))
+      )
+
+(test (parser '((deftype bool 
+          (t : bool)
+          (f : bool))
+       (deftype nat 
+          (O : nat)
+          (S : (nat -> nat)))
+       (def not (b : bool) : bool
+                (match b
+                 ((case (t) => (f))
+                  (case (f) => (t)))))
+       (def even (n : nat) (b : bool) : bool 
+               (match n
+                 ((case (O) => b)
+                  (case (S n1) => (even n1 (not b))))))
+       (even (S (S (S (O)))) (t))))
+      (Program
+       (list
+        (DefType 'bool
+                 (list
+                  (Binding 't (NoArgType 'bool))
+                  (Binding 'f (NoArgType 'bool))))
+        (DefType 'nat
+                 (list
+                  (Binding 'O (NoArgType 'nat))
+                  (Binding 'S (ArgType '(nat) 'nat))))
+        (Deff 'not
+              (list
+               (Binding 'b (NoArgType 'bool)))
+              'bool
+              (Match (Id 'b)
+                     (list
+                      (A-Case (IdPattern 't) (App 'f '()))
+                      (A-Case (IdPattern 'f) (App 't '())))))
+        (Deff 'even
+              (list
+               (Binding 'n (NoArgType 'nat))
+               (Binding 'b (NoArgType 'bool)))
+              'bool
+              (Match (Id 'n)
+                     (list
+                      (A-Case (IdPattern 'O) (Id 'b))
+                      (A-Case (TypePattern 'S '(n1)) (App 'even (list (Id 'n1) (App 'not (list (Id 'b))))))))))
+       (App 'even (list (App 'S (list (App 'S (list (App 'S (list (App 'O '()))))))) (App 't '()))))
+      )
+           

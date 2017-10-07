@@ -33,7 +33,7 @@
   (Id id)
   (Fun args body)
   (Match exp cases)
-  (App fun args)
+  (App cnst args)
   )
 
 ;; <case> ::= (case <pattern> => <expr>)
@@ -45,7 +45,7 @@
 ;;             | (<id> <id>*)
 (deftype Pattern
   (IdPattern id)
-  (TypePattern type)
+  (TypePattern type id)
   )
 
 (deftype ArgBind
@@ -61,34 +61,70 @@
 ;; parser :: s-expr -> Prog
 (define (parser s-expr)
 
-  (define (parse-types type)
+  (define (parse-types type) ;;parse the types
     (match type
-      [(? symbol?) (NoArgType type)]
-      [(list a-type mt ... '-> final-type) (ArgType (append (list a-type) mt) final-type)]
+      [(? symbol?) (NoArgType type)] ;; type like (() -> type)
+      [(list types ..1 '-> final-type) (ArgType types final-type)] ;; types like (t1+ -> t)
       )
     )
   
-  (define (parse-args args)
+  (define (parse-args args) ;;parse the arguments of functions and constructors
     (match args
-      [(cons head '()) (parse-args head)]
-      [(list id ': type) (Binding id (parse-types type))]
-      [(cons head rest) (list (parse-args head) (parse-args rest))]
+      [(cons head '()) (parse-args head)] ;; only one argument
+      [(list id ': type) (list (Binding id (parse-types type)))] ;; binds the identifier with its type
+      [(cons head rest) (append (parse-args head) (parse-args rest))] ;; more than one argument
       )
     )
 
-  (define (parse-defs defs)
+  (define (parse-defs defs) ;;parse deftype and def
     (match defs
-      [(? empty?) empty]
-      [(cons head '()) (parse-defs head)]
-      [(list 'deftype type-id defi md ...) (DefType type-id (parse-args (append (list defi) md)))]
-      [(list 'def fun args ... ': return body) (Deff fun (parse-args args) return body)]
-      [(cons head rest) (list (parse-defs head) (parse-defs rest))]
+      [(? empty?) empty] ;; no definitions
+      [(cons head '()) (parse-defs head)] ;; only one definition
+      [(list 'deftype type-id constructors ..1) (list (DefType type-id (parse-args constructors)))]
+      [(list 'def fun args ... ': return body) (list (Deff fun (parse-args args) return (parse-exp body)))]
+      [(cons head rest) (append (parse-defs head) (parse-defs rest))] ;; more than 1 definition present
       )
     )
 
-  (define (parse-exp exp)
-    (void)
-    ;; complete
+  (define (parse-constructors-args args) ;;aux parser for constructors
+    (match args
+      [(? empty?) '()] ;; no next arg
+      [(cons arg1 rest) (append (list (parse-constructors arg1)) (parse-constructors-args rest))] ;; parse the args as other Apps
+      )
+    )
+
+  (define (parse-constructors type-expression) ;;main function to create constructor applications
+    (match type-expression
+      [(? symbol?) (Id type-expression)]
+      [(cons c '()) (App c '())] ;; constructor with no arg
+      [(list t args ..1) (App t (parse-constructors-args args))] ;; constructor with args
+      )
+    )
+
+  (define (parse-pattern pattern)
+    (match pattern
+      [(? symbol?) (Id pattern)]
+      [(cons pat '()) (IdPattern pat)]
+      [(cons pat id) (TypePattern pat id)]
+      )
+    )
+
+  (define (parse-cases cases)
+    (match cases
+      [(list 'case pattern '=> exp) (list (A-Case (parse-pattern pattern) (parse-exp exp)))]
+      [(cons one-case '()) (parse-cases one-case)]
+      [(cons case rest) (append (parse-cases case) (parse-cases rest))]
+      )
+    )
+
+  (define (parse-exp exp) ;;parse an expression
+    (match exp
+      [(? symbol?) (Id exp)] ;; just an identifier
+      [(list 'fun args ..1 body) (Fun (parse-args args) (parse-exp body))] ;; an anonymous function
+      [(list 'match match-exp cases ..1) (Match (parse-exp match-exp) (parse-cases cases))] ;; pattern matching
+      [(list type type-args ...) (parse-constructors exp)] ;; types - constructors
+      
+      )
     )
   
   (match s-expr
@@ -97,8 +133,6 @@
                          (Program the-defs the-exp)]
     )
   )
-
-
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
