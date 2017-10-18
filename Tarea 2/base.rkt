@@ -139,11 +139,73 @@
 ;;          P3. INTÉRPRETE            ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+(deftype Env
+  (mtEnv)
+  (anEnv id val next)
+  )
+
+(define empty-env (mtEnv))
+(define extend-env anEnv)
+
+(define (env-lookup x env)
+  (match env
+    [(mtEnv) (error 'env-lookup "free identifier: ~a" x)]
+    [(anEnv id val rest) (if (symbol=? id x)
+                            val
+                            (env-lookup x rest))]
+    )
+  )
+
+
+(deftype EnvVal
+  (Function args return-type body)
+  (IndType args return-type)
+  )
+
+(deftype Constraint
+  (Cnst exp type)
+  )
+
+(define (interp-func func args)
+  (def (Function the-args return-type the-body) func)
+  (void)
+  )
+
+(define (check-types types)
+  (match types
+    [(? empty?) ""]
+    [(Cnst arg exp-type) (def (Binding constructor type) arg)
+                     (if (equal? type (symbol->string exp-type))
+                         constructor
+                         (error "error found, not same type")
+                         )]
+    [(cons h t) (string-append " " (check-types h) (check-types t))]
+    )
+  )
+
+(define (interp-type type type-app args)
+  (def (IndType the-args return-type) type-app)
+  (def types-zip (map Cnst args the-args)) ;; check or raise an error
+  (def types-fin (check-types types-zip))
+  (Binding (string-append "(" (symbol->string type) types-fin ")") return-type)
+  )
+  
+         
+
 ;interp :: Expr x Env -> Val
 (define (interp expr env)
-  (void))
-
-
+  (match expr
+    [(? empty?) '()]
+    [(App id  args) (def application (env-lookup id env)) ;; the env has (Funtion --) (IndType --)
+                    (def interp-args (interp args env))
+                    (match application
+                      [(Function _ _ _) (interp-func application interp-args)]
+                      [(IndType _ _) (interp-type id application interp-args)]
+                      )]
+    [(cons h l) (append (list (interp h env)) (interp l env))]
+    )
+  )
+         
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
