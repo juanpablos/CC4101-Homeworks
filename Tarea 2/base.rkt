@@ -166,28 +166,47 @@
   (Cnst exp type)
   )
 
-(define (interp-func func args)
-  (def (Function the-args return-type the-body) func)
-  (void)
-  )
-
 (define (check-types types)
   (match types
-    [(? empty?) ""]
+    [(? empty?) '()]
     [(Cnst arg exp-type) (def (Binding constructor type) arg)
+                         (if (string? exp-type)
+                             (if (equal? type exp-type)
+                                 constructor
+                                 (error "error found, not same type")
+                                 )
                      (if (equal? type (symbol->string exp-type))
                          constructor
                          (error "error found, not same type")
-                         )]
-    [(cons h t) (string-append " " (check-types h) (check-types t))]
+                         )
+                     )]
+    [(cons h t) (append (list (check-types h)) (check-types t))]
     )
+  )
+
+(define (resolve-args fun-bindings)
+  (match fun-bindings
+    [(? empty?) '()]
+    [(Binding id type) type]
+    [(cons h t) (append (list (resolve-args h)) (resolve-args t))]
+    )
+  )
+
+(define (interp-func func args)
+  (def (Function the-args return-type the-body) func) ;; the-args can be empty
+
+  (def arg-types (resolve-args the-args))
+  (def types-zip (map Cnst args arg-types))
+  (def types-fin (check-types types-zip))
+  (print types-fin)
+  (void)
   )
 
 (define (interp-type type type-app args)
   (def (IndType the-args return-type) type-app)
   (def types-zip (map Cnst args the-args)) ;; check or raise an error
   (def types-fin (check-types types-zip))
-  (Binding (string-append "(" (symbol->string type) types-fin ")") return-type)
+  (Binding (Binding (symbol->string type) types-fin) return-type)
   )
   
          
@@ -206,7 +225,6 @@
     )
   )
          
-
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;          P4. FUNCIÓN Run           ;;
