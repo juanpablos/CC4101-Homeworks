@@ -264,3 +264,19 @@
       )
 
 
+;; anonymous function application
+
+
+(def anony-env (extend-env 'f (IndType '() "bool") (extend-env 't (IndType '() "bool") empty-env)))
+
+(test (interp (App (Fun (list (Binding 'x (NoArgType 'bool))) (Id 'x)) (list (App 't '()))) anony-env)
+      (Binding (Binding "t" '()) "bool")
+      )
+
+(test (interp (App (Fun (list (Binding 'x (NoArgType 'bool)) (Binding 'y (NoArgType 'bool))) (Id 'y)) (list (App 't '()) (App 'f '()))) anony-env)
+      (Binding (Binding "f" '()) "bool")
+      )
+
+
+
+

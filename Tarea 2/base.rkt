@@ -153,8 +153,8 @@
   (match env
     [(mtEnv) (error 'env-lookup "free identifier: ~a" x)]
     [(anEnv id val rest) (if (symbol=? id x)
-                            val
-                            (env-lookup x rest))]
+                             val
+                             (env-lookup x rest))]
     )
   )
 
@@ -177,11 +177,11 @@
                                  constructor
                                  (error "type error, not same type")
                                  )
-                     (if (equal? type (symbol->string exp-type))
-                         constructor
-                         (error "type error, not same type")
-                         )
-                     )]
+                             (if (equal? type (symbol->string exp-type))
+                                 constructor
+                                 (error "type error, not same type")
+                                 )
+                             )]
     [(cons h t) (append (list (check-types h)) (check-types t))]
     )
   )
@@ -289,8 +289,8 @@
                                 )]
             [(TypePattern id fold) (cond
                                      [(check-match-mul id fold match-id)
-                                         (define new-env (bind-matches fold match-id env))
-                                         (interp return new-env)]
+                                      (define new-env (bind-matches fold match-id env))
+                                      (interp return new-env)]
                                      [else (eval-cases match-id rest-cases env)]
                                      )]
             [(Id n) (interp return env)]
@@ -298,6 +298,29 @@
     )
   )
 
+(define (clean-args args)
+  (match args
+    [(cons h '()) (list (clean-args h))]
+    [(Binding id type) (Binding id (NoArgType-type type))]
+    [(cons h t) (append (list (clean-args h)) (clean-args t))]
+    )
+  )
+
+(define (interp-anonymous fun args env)
+  (def (Fun fun-args fun-body) fun)
+  (def parsed-fun-args (clean-args fun-args))
+
+  (def fun-arg-types (resolve-args parsed-fun-args))
+  (def fun-arg-variables (resolve-variables parsed-fun-args))
+  
+  (def types-zip (map Cnst args fun-arg-types))
+  
+  (def types-fin (check-types types-zip))
+  
+  (def fun-env (create-fun-env (map Binding fun-arg-variables args) env))
+  
+  (fold-body fun-body fun-env)
+  )
 
      
 ;interp :: Expr x Env -> Val
@@ -305,11 +328,15 @@
   (match expr
     [(? empty?) '()]
     [(Id n) (env-lookup n env)]
-    [(App id  args) (def application (env-lookup id env)) ;; the env has (Funtion --) (IndType --)
-                    (def interp-args (interp args env))
-                    (match application
-                      [(Function _ _ _) (interp-func application interp-args env)]
-                      [(IndType _ _) (interp-type id application interp-args)]
+    [(App id  args) (cond
+                      [(Fun? id) (interp-anonymous id (interp args env) env)]
+                      [else
+                       (def application (env-lookup id env)) ;; the env has (Funtion --) (IndType --)
+                       (def interp-args (interp args env))
+                       (match application
+                         [(Function _ _ _) (interp-func application interp-args env)]
+                         [(IndType _ _) (interp-type id application interp-args)]
+                         )]
                       )]
     [(Match id cases) (def bind-id (interp id env))
                       (eval-cases bind-id cases env)]
