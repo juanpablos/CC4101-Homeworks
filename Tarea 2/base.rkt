@@ -201,7 +201,7 @@
       [(Cnst arg exp-type) (def (Binding constructor type) arg)
                            (if (equal? type (symbol->string exp-type))
                                constructor
-                               (error "type error, not same type")
+                               (error "type error, argument types don't match, should be ~a not ~a" type (symbol->string exp-type))
                                )
                            ]
       [(cons h t) (append (list (check-types h)) (check-types t))]
@@ -227,7 +227,6 @@
   (define (create-fun-env variables-arg-pairs the-env) ;; creates a new env with the function variables and given arguments
     (match variables-arg-pairs
       [(? empty?) the-env]
-      [(cons h '()) (create-fun-env h the-env)]
       [(Binding var arg) (extend-env var arg the-env)]
       [(cons h t) (def h-env (create-fun-env h the-env))
                   (create-fun-env t h-env)]
@@ -239,15 +238,14 @@
   ;; the return value. Returns an error if the return types don't match
   (define (interp-func func args env) 
     (def (Function the-args return-type the-body) func)
-    (def arg-types (resolve-args the-args))
     (def arg-variables (resolve-variables the-args))
-    (def types-zip (map Cnst args arg-types))
+    (def types-zip (map Cnst args (resolve-args the-args)))
     (def types-fin (check-types types-zip))
     (def fun-env (create-fun-env (map Binding arg-variables args) env))
     (def body-result (interp the-body fun-env))
     (if (equal? return-type (Binding-on body-result))
         body-result
-        (error "type error, return types are not the same")
+        (error "type error, function return type differ, should return ~a but returns ~" return-type (Binding-on body-result))
         )
     )
 
@@ -293,7 +291,7 @@
   ;; evaluates the matching cases and returns the corresponding value of the case
   (define (eval-cases match-id cases env)
     (cond
-      [(empty? cases) (error "match error, no matching case")]
+      [(empty? cases) (error "match error, no matching case for ~a" match-id)]
       [else (def (cons (A-Case pattern return) rest-cases) cases)
             (match pattern
               [(IdPattern id) (if (check-match-no id match-id)
@@ -324,9 +322,8 @@
   (define (interp-anonymous fun args env)
     (def (Fun fun-args fun-body) fun)
     (def parsed-fun-args (clean-args fun-args))
-    (def fun-arg-types (resolve-args parsed-fun-args))
     (def fun-arg-variables (resolve-variables parsed-fun-args))
-    (def types-zip (map Cnst args fun-arg-types))
+    (def types-zip (map Cnst args (resolve-args parsed-fun-args)))
     (def types-fin (check-types types-zip))
     (def fun-env (create-fun-env (map Binding fun-arg-variables args) env))
     (interp fun-body fun-env)
