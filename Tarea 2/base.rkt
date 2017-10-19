@@ -49,7 +49,7 @@
   )
 
 (deftype ArgBind
-  (Binding id type)
+  (Binding exp type)
   )
 
 
@@ -70,6 +70,7 @@
   
   (define (parse-args args) ;;parse the arguments of functions and constructors
     (match args
+      [(? empty?) '()]
       [(cons head '()) (parse-args head)] ;; only one argument
       [(list id ': type) (list (Binding id (parse-types type)))] ;; binds the identifier with its type
       [(cons head rest) (append (parse-args head) (parse-args rest))] ;; more than one argument
@@ -166,7 +167,7 @@
   (Cnst exp type)
   )
 
-(define (check-types types)
+(define (check-types types) ;; refactor
   (match types
     [(? empty?) '()]
     [(Cnst arg exp-type) (def (Binding constructor type) arg)
@@ -192,14 +193,55 @@
     )
   )
 
-(define (interp-func func args)
-  (def (Function the-args return-type the-body) func) ;; the-args can be empty
+(define (resolve-variables fun-bindings)
+  (match fun-bindings
+    [(? empty?) '()]
+    [(Binding id type) id]
+    [(cons h t) (append (list (resolve-variables h)) (resolve-variables t))]
+    )
+  )
 
+(define (create-fun-env variables-arg-pairs the-env)
+  (match variables-arg-pairs
+    [(cons h '()) (create-fun-env h the-env)]
+    [(Binding var arg) (extend-env var arg the-env)]
+    [(cons h t) (def h-env (create-fun-env h the-env))
+                (create-fun-env t h-env)]
+    )
+  )
+
+(define (create-arg-env variables the-env)
+  (match variables
+    [(cons h '()) (create-arg-env h the-env)]
+    [(Binding id type) (extend-env id type the-env)]
+    [(cons h t) (def h-env (create-arg-env h the-env))
+                (create-arg-env t h-env)]
+    )
+  )
+
+(define (fold-body body env)
+  (match body
+    [(Id n) (env-lookup n env)]
+    )
+  )
+
+(define (interp-func func args env)
+  (def (Function the-args return-type the-body) func) ;; the-args can be empty
+  
   (def arg-types (resolve-args the-args))
+  (def arg-variables (resolve-variables the-args))
+  
   (def types-zip (map Cnst args arg-types))
+  
   (def types-fin (check-types types-zip))
-  (print types-fin)
-  (void)
+  (def fun-env (create-fun-env (map Binding arg-variables args) env))
+
+  (def body-result (fold-body the-body fun-env))
+
+  (if (equal? return-type (Binding-type body-result))
+      body-result
+      (error "Error found, return types are not the same")
+      )
   )
 
 (define (interp-type type type-app args)
@@ -218,13 +260,13 @@
     [(App id  args) (def application (env-lookup id env)) ;; the env has (Funtion --) (IndType --)
                     (def interp-args (interp args env))
                     (match application
-                      [(Function _ _ _) (interp-func application interp-args)]
+                      [(Function _ _ _) (interp-func application interp-args env)]
                       [(IndType _ _) (interp-type id application interp-args)]
                       )]
     [(cons h l) (append (list (interp h env)) (interp l env))]
     )
   )
-         
+
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;          P4. FUNCIÓN Run           ;;

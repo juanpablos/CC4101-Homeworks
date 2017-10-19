@@ -3,9 +3,9 @@
 (require "base.rkt")
 
 (test (parser '((deftype nat 
-          (O : nat)
-          (S : (nat -> nat)))
-       (O)))
+                  (O : nat)
+                  (S : (nat -> nat)))
+                (O)))
       (Program
        (list
         (DefType 'nat
@@ -16,9 +16,9 @@
       )
 
 (test (parser '((deftype bool 
-          (t : bool)
-          (f : bool))
-       (fun (x : bool) x)))
+                  (t : bool)
+                  (f : bool))
+                (fun (x : bool) x)))
       (Program
        (list
         (DefType 'bool
@@ -29,12 +29,12 @@
       )
 
 (test (parser '((deftype nat 
-               (O : nat)
-               (S : (nat -> nat)))
-             (deftype expr 
-               (num : (nat -> expr))
-               (add : (expr expr -> expr)))   
-             (add (num (S (O))) (num (O)))))
+                  (O : nat)
+                  (S : (nat -> nat)))
+                (deftype expr 
+                  (num : (nat -> expr))
+                  (add : (expr expr -> expr)))   
+                (add (num (S (O))) (num (O)))))
       (Program
        (list
         (DefType 'nat
@@ -49,13 +49,13 @@
       )
 
 (test (parser '((deftype nat
-          (O : nat)
-          (S : (nat -> nat)))
-       (def pred (n : nat) : nat
-               (match n
-                 ((case (O) => (O))
-                  (case (S n1) => n1))))
-       (pred (S (O)))))
+                  (O : nat)
+                  (S : (nat -> nat)))
+                (def pred (n : nat) : nat
+                  (match n
+                    ((case (O) => (O))
+                     (case (S n1) => n1))))
+                (pred (S (O)))))
       (Program
        (list
         (DefType 'nat
@@ -74,12 +74,12 @@
       )
 
 (test (parser '((deftype bool 
-          (t : bool)
-          (f : bool))
-       (def not (b : bool) : bool
-                (match b
-                 ((case (t) => (f)))))
-       (not (f))))
+                  (t : bool)
+                  (f : bool))
+                (def not (b : bool) : bool
+                  (match b
+                    ((case (t) => (f)))))
+                (not (f))))
       (Program
        (list
         (DefType 'bool
@@ -97,22 +97,22 @@
       )
 
 (test (parser '((deftype day 
-         (monday : day)
-         (tuesday : day)
-         (wednesday : day)
-         (thursday : day)
-         (friday : day)
-         (saturday : day)
-         (sunday : day))
-       (deftype bool
-         (t : bool)
-         (f : bool))
-       (def weekday (d : day) : bool
-         (match d
-           ((case (saturday) => (f))
-            (case (sunday) => (f))
-            (case otherday => (t)))))
-       (weekday (monday))))
+                  (monday : day)
+                  (tuesday : day)
+                  (wednesday : day)
+                  (thursday : day)
+                  (friday : day)
+                  (saturday : day)
+                  (sunday : day))
+                (deftype bool
+                  (t : bool)
+                  (f : bool))
+                (def weekday (d : day) : bool
+                  (match d
+                    ((case (saturday) => (f))
+                     (case (sunday) => (f))
+                     (case otherday => (t)))))
+                (weekday (monday))))
       (Program
        (list
         (DefType 'day
@@ -141,20 +141,20 @@
       )
 
 (test (parser '((deftype bool 
-          (t : bool)
-          (f : bool))
-       (deftype nat 
-          (O : nat)
-          (S : (nat -> nat)))
-       (def not (b : bool) : bool
-                (match b
-                 ((case (t) => (f))
-                  (case (f) => (t)))))
-       (def even (n : nat) (b : bool) : bool 
-               (match n
-                 ((case (O) => b)
-                  (case (S n1) => (even n1 (not b))))))
-       (even (S (S (S (O)))) (t))))
+                  (t : bool)
+                  (f : bool))
+                (deftype nat 
+                  (O : nat)
+                  (S : (nat -> nat)))
+                (def not (b : bool) : bool
+                  (match b
+                    ((case (t) => (f))
+                     (case (f) => (t)))))
+                (def even (n : nat) (b : bool) : bool 
+                  (match n
+                    ((case (O) => b)
+                     (case (S n1) => (even n1 (not b))))))
+                (even (S (S (S (O)))) (t))))
       (Program
        (list
         (DefType 'bool
@@ -184,4 +184,30 @@
                       (A-Case (TypePattern 'S '(n1)) (App 'even (list (Id 'n1) (App 'not (list (Id 'b))))))))))
        (App 'even (list (App 'S (list (App 'S (list (App 'S (list (App 'O '()))))))) (App 't '()))))
       )
-           
+
+
+
+;;;;;;;;;;;;;;;;;;;; INTERP TODO: check exceptions
+
+(test (interp (App 'O '()) (extend-env 'O (IndType '() "nat") empty-env))
+      (Binding (Binding "O" '()) "nat")
+      )
+
+(test (interp (App 'S (list (App 'O '()))) (extend-env 'S (IndType '(nat) "nat") (extend-env 'O (IndType '() "nat") empty-env)))
+      (Binding (Binding "S" (list (Binding "O" '()))) "nat")
+      )
+
+
+(test (interp (App 'add (list (App 'num (list (App 'S (list (App 'O '()))))) (App 'num (list (App 'O '())))))
+              (extend-env 'add (IndType '(expr expr) "expr") (extend-env 'num (IndType '(nat) "expr") (extend-env 'S (IndType '(nat) "nat") (extend-env 'O (IndType '() "nat") empty-env)))))
+      (Binding (Binding "add" (list (Binding "num" (list (Binding "S" (list (Binding "O" '()))))) (Binding "num" (list (Binding "O" '()))))) "expr")
+      )
+
+(test (interp (App 'idTy (list (App 'S (list (App 'O '())))))
+              (extend-env 'idTy (Function (list (Binding 'n 'nat)) "nat" (Id 'n)) (extend-env 'S (IndType '(nat) "nat") (extend-env 'O (IndType '() "nat") empty-env))))
+      (Binding (Binding "S" (list (Binding "O" '()))) "nat")
+      )
+
+
+
+
