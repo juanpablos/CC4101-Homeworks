@@ -262,8 +262,18 @@
       )
   )
 
-(define (bind-matches id vars match-id env)
-  (create-fun-env (map Binding vars (Binding-type (Binding-exp match-id))) env) ;; this returns (Binding "O" '()) but we need (Binding (Binding "O" '()) "nat")
+(define (bind-types ids env)
+  (match ids
+    [(cons h '()) (list (bind-types h env))]
+    [(Binding id args) (Binding ids (IndType-return-type (env-lookup (string->symbol id) env)))]
+    [(cons h t) (append (list (bind-types h env)) (bind-types t env))]
+    )
+  )
+
+(define (bind-matches vars match-id env)
+  (def pre-results (Binding-type (Binding-exp match-id)))
+  (def results (bind-types pre-results env))
+  (create-fun-env (map Binding vars results) env)
   )
 
 
@@ -278,8 +288,7 @@
                                 )]
             [(TypePattern id fold) (cond
                                      [(check-match-mul id fold match-id)
-                                         (define new-env (bind-matches id fold match-id env))
-                                         (print new-env)
+                                         (define new-env (bind-matches fold match-id env))
                                          (interp return new-env)]
                                      [else (eval-cases match-id rest-cases env)]
                                      )]

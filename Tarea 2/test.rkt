@@ -215,6 +215,13 @@
       (Binding (Binding "f" '()) "bool")
       )
 
+;; pred
+(test (interp (App 'pred (list (App 'S (list (App 'O '())))))
+              (extend-env 'pred (Function (list (Binding 'n 'nat)) "nat" (Match (Id 'n) (list (A-Case (IdPattern 'O) (App 'O '())) (A-Case (TypePattern 'S '(n1)) (Id 'n1)))))
+                          (extend-env 'S (IndType '(nat) "nat") (extend-env 'O (IndType '() "nat") empty-env))))
+      (Binding (Binding "O" '()) "nat")
+      )
+
 
 
 
