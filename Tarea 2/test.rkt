@@ -203,9 +203,16 @@
       (Binding (Binding "add" (list (Binding "num" (list (Binding "S" (list (Binding "O" '()))))) (Binding "num" (list (Binding "O" '()))))) "expr")
       )
 
+;; identity func
 (test (interp (App 'idTy (list (App 'S (list (App 'O '())))))
               (extend-env 'idTy (Function (list (Binding 'n 'nat)) "nat" (Id 'n)) (extend-env 'S (IndType '(nat) "nat") (extend-env 'O (IndType '() "nat") empty-env))))
       (Binding (Binding "S" (list (Binding "O" '()))) "nat")
+      )
+
+;; no arg func
+(test (interp (App 'no '())
+              (extend-env 'no (Function '() "bool" (App 'f '())) (extend-env 'f (IndType '() "bool") (extend-env 't (IndType '() "bool") empty-env))))
+      (Binding (Binding "f" '()) "bool")
       )
 
 

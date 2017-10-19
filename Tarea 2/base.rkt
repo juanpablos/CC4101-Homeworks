@@ -203,6 +203,7 @@
 
 (define (create-fun-env variables-arg-pairs the-env)
   (match variables-arg-pairs
+    [(? empty?) the-env]
     [(cons h '()) (create-fun-env h the-env)]
     [(Binding var arg) (extend-env var arg the-env)]
     [(cons h t) (def h-env (create-fun-env h the-env))
@@ -220,9 +221,7 @@
   )
 
 (define (fold-body body env)
-  (match body
-    [(Id n) (env-lookup n env)]
-    )
+  (interp body env)
   )
 
 (define (interp-func func args env)
@@ -237,6 +236,7 @@
   (def fun-env (create-fun-env (map Binding arg-variables args) env))
 
   (def body-result (fold-body the-body fun-env))
+  ;(print body-result)
 
   (if (equal? return-type (Binding-type body-result))
       body-result
@@ -250,19 +250,58 @@
   (def types-fin (check-types types-zip))
   (Binding (Binding (symbol->string type) types-fin) return-type)
   )
-  
-         
 
+(define (check-match-no id match-id)
+  (equal? (symbol->string id) (Binding-exp (Binding-exp match-id)))
+  )
+
+(define (check-match-mul id vars match-id)
+  (if (equal? (symbol->string id) (Binding-exp (Binding-exp match-id)))
+      (equal? (length vars) (length (Binding-type (Binding-exp match-id))))
+      #f
+      )
+  )
+
+(define (bind-matches id vars match-id env)
+  (create-fun-env (map Binding vars (Binding-type (Binding-exp match-id))) env) ;; this returns (Binding "O" '()) but we need (Binding (Binding "O" '()) "nat")
+  )
+
+
+(define (eval-cases match-id cases env)
+  (cond
+    [(empty? cases) (error "no matching case")]
+    [else (def (cons (A-Case pattern return) rest-cases) cases)
+          (match pattern
+            [(IdPattern id) (if (check-match-no id match-id)
+                                (interp return env)
+                                (eval-cases match-id rest-cases env)
+                                )]
+            [(TypePattern id fold) (cond
+                                     [(check-match-mul id fold match-id)
+                                         (define new-env (bind-matches id fold match-id env))
+                                         (print new-env)
+                                         (interp return new-env)]
+                                     [else (eval-cases match-id rest-cases env)]
+                                     )]
+            )]
+    )
+  )
+
+
+     
 ;interp :: Expr x Env -> Val
 (define (interp expr env)
   (match expr
     [(? empty?) '()]
+    [(Id n) (env-lookup n env)]
     [(App id  args) (def application (env-lookup id env)) ;; the env has (Funtion --) (IndType --)
                     (def interp-args (interp args env))
                     (match application
                       [(Function _ _ _) (interp-func application interp-args env)]
                       [(IndType _ _) (interp-type id application interp-args)]
                       )]
+    [(Match id cases) (def bind-id (interp id env))
+                      (eval-cases bind-id cases env)]
     [(cons h l) (append (list (interp h env)) (interp l env))]
     )
   )
