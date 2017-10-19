@@ -28,6 +28,15 @@
        (Fun (list (Binding 'x (NoArgType 'bool))) (Id 'x)))
       )
 
+(test (parser '((deftype bool
+                  (t : bool)
+                  (f : bool))
+                ((fun (x : bool) x) (t))
+                )
+              )
+      (Program (list (DefType 'bool (list (Binding 't (NoArgType 'bool)) (Binding 'f (NoArgType 'bool))))) (App (Fun (list (Binding 'x (NoArgType 'bool))) (Id 'x)) (list (App 't '()))))
+      )
+
 (test (parser '((deftype nat 
                   (O : nat)
                   (S : (nat -> nat)))
@@ -222,6 +231,36 @@
       (Binding (Binding "O" '()) "nat")
       )
 
+;; weekday (id as matching clause)
+(define week-env (extend-env 'weekday (Function (list (Binding 'd 'day)) "bool"
+                                                (Match (Id 'd) (list (A-Case (IdPattern 'saturday) (App 'f '())) (A-Case (IdPattern 'sunday) (App 'f '())) (A-Case (Id 'otherday) (App 't '())))))
+                             (extend-env 'f (IndType '() "bool") (extend-env 't (IndType '() "bool") (extend-env 'sunday (IndType '() "day") (extend-env 'saturday (IndType '() "day") (extend-env 'friday (IndType '() "day")
+                              (extend-env 'thursday (IndType '() "day") (extend-env 'wednesday (IndType '() "day") (extend-env 'tuesday (IndType '() "day") (extend-env 'monday (IndType '() "day") empty-env))))))))))
+  )
+           
+(test (interp (App 'weekday (list (App 'monday '()))) week-env)
+      (Binding (Binding "t" '()) "bool")
+      )
+(test (interp (App 'weekday (list (App 'sunday '()))) week-env)
+      (Binding (Binding "f" '()) "bool")
+      )
+(test (interp (App 'weekday (list (App 'friday '()))) week-env)
+      (Binding (Binding "t" '()) "bool")
+      )
 
+;; even (recursion and multiple arguments
+(define even-env (extend-env 'even (Function (list (Binding 'n 'nat) (Binding 'b 'bool)) "bool"
+                                             (Match (Id 'n) (list (A-Case (IdPattern 'O) (Id 'b)) (A-Case (TypePattern 'S '(n1)) (App 'even (list (Id 'n1) (App 'not (list (Id 'b))))))))) (extend-env 'not
+                                              (Function (list (Binding 'b 'bool)) "bool" (Match (Id 'b) (list (A-Case (IdPattern 't) (App 'f '())) (A-Case (IdPattern 'f) (App 't '())))))
+                                              (extend-env 'f (IndType '() "bool") (extend-env 't (IndType '() "bool") (extend-env 'S (IndType '(nat) "nat") (extend-env 'O (IndType '() "nat") empty-env))))))
+  )
+
+(test (interp (App 'even (list (App 'S (list (App 'S (list (App 'S (list (App 'O '()))))))) (App 't '()))) even-env)
+      (Binding (Binding "f" '()) "bool")
+      )
+
+(test (interp (App 'even (list (App 'S (list (App 'S (list (App 'O '()))))) (App 't '()))) even-env)
+      (Binding (Binding "t" '()) "bool")
+      )
 
 

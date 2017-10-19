@@ -98,6 +98,7 @@
     (match type-expression
       [(? symbol?) (Id type-expression)]
       [(cons c '()) (App c '())] ;; constructor with no arg
+      [(list (list 'fun fun-args ..1 body) args ..1) (App (Fun (parse-args fun-args) (parse-exp body)) (parse-constructors-args args))]
       [(list t args ..1) (App t (parse-constructors-args args))] ;; constructor with args
       )
     )
@@ -174,11 +175,11 @@
                          (if (string? exp-type)
                              (if (equal? type exp-type)
                                  constructor
-                                 (error "error found, not same type")
+                                 (error "type error, not same type")
                                  )
                      (if (equal? type (symbol->string exp-type))
                          constructor
-                         (error "error found, not same type")
+                         (error "type error, not same type")
                          )
                      )]
     [(cons h t) (append (list (check-types h)) (check-types t))]
@@ -240,7 +241,7 @@
 
   (if (equal? return-type (Binding-type body-result))
       body-result
-      (error "Error found, return types are not the same")
+      (error "type error, return types are not the same")
       )
   )
 
@@ -279,7 +280,7 @@
 
 (define (eval-cases match-id cases env)
   (cond
-    [(empty? cases) (error "no matching case")]
+    [(empty? cases) (error "match error, no matching case")]
     [else (def (cons (A-Case pattern return) rest-cases) cases)
           (match pattern
             [(IdPattern id) (if (check-match-no id match-id)
@@ -292,6 +293,7 @@
                                          (interp return new-env)]
                                      [else (eval-cases match-id rest-cases env)]
                                      )]
+            [(Id n) (interp return env)]
             )]
     )
   )
