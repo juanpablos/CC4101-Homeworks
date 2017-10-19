@@ -277,6 +277,80 @@
       (Binding (Binding "f" '()) "bool")
       )
 
+;; Return a funtion
+
+(test (interp (Fun (list (Binding 'x (NoArgType 'bool))) (Id 'x)) anony-env)
+      (Binding "λ" "")
+      )
 
 
+;;;;;;;;;;;;;;;;;;; Tests enunciado
+(test (run '((deftype nat 
+          (O : nat)
+          (S : (nat -> nat)))
+       (O)))
+      "(O) : nat"
+      )
 
+(test (run '((deftype nat 
+               (O : nat)
+               (S : (nat -> nat)))
+             (deftype expr 
+               (num : (nat -> expr))
+               (add : (expr expr -> expr)))   
+             (add (num (S (O))) (num (O)))))
+      "(add (num (S (O))) (num (O))) : expr"
+      )
+
+(test (run '((deftype nat
+          (O : nat)
+          (S : (nat -> nat)))
+       (def pred (n : nat) : nat
+               (match n
+                 ((case (O) => (O))
+                  (case (S n1) => n1))))
+       (pred (S (O)))))
+      "(O) : nat"
+      )
+
+(test/exn (run '((deftype bool 
+          (t : bool)
+          (f : bool))
+       (def not (b : bool) : bool
+                (match b
+                 ((case (t) => (f)))))
+       (not (f))))
+          "match error"
+          )
+
+
+(test (run '((deftype day 
+         (monday : day)
+         (tuesday : day)
+         (wednesday : day)
+         (thursday : day)
+         (friday : day)
+         (saturday : day)
+         (sunday : day))
+       (deftype bool
+         (t : bool)
+         (f : bool))
+       (def weekday (d : day) : bool
+         (match d
+           ((case (saturday) => (f))
+            (case (sunday) => (f))
+            (case otherday => (t)))))
+       (weekday (monday))))
+      "(t) : bool"
+      )
+
+
+(test (run '((deftype bool 
+          (t : bool)
+          (f : bool))
+       (fun (x : bool) x)))
+      "λ"
+      )
+
+
+      

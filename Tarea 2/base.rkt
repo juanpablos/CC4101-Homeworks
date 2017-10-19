@@ -48,8 +48,10 @@
   (TypePattern type id)
   )
 
+;; <binding> ::= <object> <object>
+;; It is used to pair things. Maybe Pair would've been a better name
 (deftype ArgBind
-  (Binding exp type)
+  (Binding dep on)
   )
 
 
@@ -59,6 +61,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ;; parser :: s-expr -> Prog
+;; 
 (define (parser s-expr)
 
   (define (parse-types type) ;;parse the types
@@ -239,7 +242,7 @@
   (def body-result (fold-body the-body fun-env))
   ;(print body-result)
 
-  (if (equal? return-type (Binding-type body-result))
+  (if (equal? return-type (Binding-on body-result))
       body-result
       (error "type error, return types are not the same")
       )
@@ -253,12 +256,12 @@
   )
 
 (define (check-match-no id match-id)
-  (equal? (symbol->string id) (Binding-exp (Binding-exp match-id)))
+  (equal? (symbol->string id) (Binding-dep (Binding-dep match-id)))
   )
 
 (define (check-match-mul id vars match-id)
-  (if (equal? (symbol->string id) (Binding-exp (Binding-exp match-id)))
-      (equal? (length vars) (length (Binding-type (Binding-exp match-id))))
+  (if (equal? (symbol->string id) (Binding-dep (Binding-dep match-id)))
+      (equal? (length vars) (length (Binding-on (Binding-dep match-id))))
       #f
       )
   )
@@ -272,7 +275,7 @@
   )
 
 (define (bind-matches vars match-id env)
-  (def pre-results (Binding-type (Binding-exp match-id)))
+  (def pre-results (Binding-on (Binding-dep match-id)))
   (def results (bind-types pre-results env))
   (create-fun-env (map Binding vars results) env)
   )
@@ -341,6 +344,7 @@
     [(Match id cases) (def bind-id (interp id env))
                       (eval-cases bind-id cases env)]
     [(cons h l) (append (list (interp h env)) (interp l env))]
+    [(Fun _ _) (Binding "λ" "")]
     )
   )
 
@@ -349,6 +353,72 @@
 ;;          P4. FUNCIÓN Run           ;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+
+(define (constructor-iter constructors return-type env)
+  (match constructors
+    [(cons h '()) (constructor-iter h return-type env)]
+    [(Binding id ret) (match ret
+                        [(NoArgType type) (if (equal? type return-type)
+                                              (extend-env id (IndType '() (symbol->string type)) env)
+                                              (error "type error, constructor does not return correct type")
+                                              )]
+                        [(ArgType types type) (if (equal? type return-type)
+                                                  (extend-env id (IndType types (symbol->string type)) env)
+                                                  (error "type error, constructor does not return correct type")
+                                                  )]
+                        )]
+    [(cons h t) (def new-env (constructor-iter h return-type env))
+                (constructor-iter t return-type new-env)]
+    )
+  )
+
+(define (unfold-fun-args args)
+  (match args
+    [(? empty?) '()]
+    [(Binding var type) (Binding var (NoArgType-type type))]
+    [(cons h t) (append (list (unfold-fun-args h)) (unfold-fun-args t))]
+    )
+  )
+
+(define (get-env definitions env)
+  (match definitions
+    [(? empty? definitions) env]
+    [(DefType type defs) (constructor-iter defs type env)]
+    [(Deff fun-id fun-args return-type body) (extend-env fun-id (Function (unfold-fun-args fun-args) (symbol->string return-type) body) env)]
+    [(cons h t) (def new-env (get-env h env))
+                (get-env t new-env)]
+    )
+  )
+
+(define (get-strings sub-bindings)
+  (match sub-bindings
+    [(? empty?) ""]
+    [(cons h '()) (string-append "(" (get-strings h) ")")]
+    [(Binding id '()) id]
+    [(Binding id rest) (string-append id " " (get-strings rest))]
+    [(cons h t) (string-append "(" (get-strings h) ") " (get-strings t))]
+    )
+  )
+
+
+(define (to-string bindings)
+  (def (Binding res type) bindings)
+  (if (equal? "λ" res)
+      res
+      (string-append (get-strings (list res)) " : " type)
+      )
+  )
+  
+
 ;run :: s-expr -> String 
 (define (run s-expr)
-  (void))
+  (def (Program defs exp) (parser s-expr))
+  (def env (get-env defs empty-env))
+  (def result (interp exp env))
+  (to-string result)
+  )
+
+
+
+
+
