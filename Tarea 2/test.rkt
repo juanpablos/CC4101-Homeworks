@@ -195,6 +195,23 @@
       )
 
 
+;;;;;;;;;;;;;;;;;; ENV -- por si a caso
+(test empty-env
+      (mtEnv)
+      )
+
+(test (extend-env 'a "test" empty-env)
+      (anEnv 'a "test" (mtEnv))
+      )
+
+(test/exn (env-lookup 'x empty-env)
+          "free identifier"
+          )
+
+(test (env-lookup 'x (extend-env 'x "works" empty-env))
+      "works"
+      )
+
 
 ;;;;;;;;;;;;;;;;;;;; INTERP
 
@@ -579,4 +596,37 @@
          (pretty-aux n (zero)))
        (prettyfy (sum (Succ (Succ (Succ (zero)))) (Succ (Succ (Succ (Zero))))))))
       "type error"
+      )
+
+(test/exn (run '((deftype nat 
+          (O : nat)
+          (S : (nat -> nat)))
+       (S)))
+      "incorrect number of arguments"
+      )
+
+(test/exn (run '((deftype bool 
+          (t : bool)
+          (f : bool))
+             ((fun (y : bool) y) (t) (f))))
+      "incorrect number of arguments"
+      )
+
+
+(test/exn (run '((deftype nat
+          (O : nat)
+          (S : (nat -> nat)))
+       (def pred (n : nat) : nat
+               (match n
+                 ((case (O) => (O))
+                  (case (S n1) => n1))))
+       (pred (O) (S (O)))))
+      "incorrect number of arguments"
+      )
+
+(test/exn (run '((deftype bool 
+          (t : bool)
+          (f : bool))
+             ((fun (y : bool) x) (t))))
+      "free identifier"
       )

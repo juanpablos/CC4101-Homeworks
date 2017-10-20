@@ -1,6 +1,12 @@
 #lang play
 
 
+;; Juan-Pablo Silva
+
+;; Como el enunciado no lo explicitaba, se hizo solo un rapido chequeo sobre que el numero de argumentos para un constructor y para una funcion fueran
+;; del numero correcto. Solo se chequea legitmente(?) que los tipos calzen. Para el numero de argumentos solo se ve que las listas sean del mismo largo
+
+
  
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;      P1. SINTAXIS ABSTRACTA        ;;
@@ -239,23 +245,33 @@
   (define (interp-func func args env) 
     (def (Function the-args return-type the-body) func)
     (def arg-variables (resolve-variables the-args))
-    (def types-zip (map Cnst args (resolve-args the-args)))
-    (def types-fin (check-types types-zip))
-    (def fun-env (create-fun-env (map Binding arg-variables args) env))
-    (def body-result (interp the-body fun-env))
-    (if (equal? return-type (Binding-on body-result))
-        body-result
-        (error "type error, function return type differ, should return ~a but returns ~" return-type (Binding-on body-result))
-        )
+    (def clean-args-fun (resolve-args the-args))
+    (cond
+      [(equal? (length clean-args-fun) (length args))
+       (def types-zip (map Cnst args clean-args-fun))
+       (def types-fin (check-types types-zip))
+       (def fun-env (create-fun-env (map Binding arg-variables args) env))
+       (def body-result (interp the-body fun-env))
+       (if (equal? return-type (Binding-on body-result))
+           body-result
+           (error "type error, function return type differ, should return ~a but returns ~a" return-type (Binding-on body-result))
+           )]
+      [else (error "incorrect number of arguments, ~a given, ~a expected" (length args) (length clean-args-fun))]
+      )
+    
     )
 
   ;; interprets an inductive type and constructs a binding sequence for flexible manipulation
   ;; return value is the constructed type object binded with its type
   (define (interp-type type type-app args)
     (def (IndType the-args return-type) type-app)
-    (def types-zip (map Cnst args the-args))
-    (def types-fin (check-types types-zip))
-    (Binding (Binding (symbol->string type) types-fin) return-type)
+    (cond
+      [(equal? (length the-args) (length args))
+       (def types-zip (map Cnst args the-args))
+       (def types-fin (check-types types-zip))
+       (Binding (Binding (symbol->string type) types-fin) return-type)]
+      [else (error "incorrect number of arguments, ~a given, ~a expected" (length args) (length the-args))]
+      )
     )
 
   ;; checks if there is a match between the match identifier and the case id
@@ -323,10 +339,15 @@
     (def (Fun fun-args fun-body) fun)
     (def parsed-fun-args (clean-args fun-args))
     (def fun-arg-variables (resolve-variables parsed-fun-args))
-    (def types-zip (map Cnst args (resolve-args parsed-fun-args)))
-    (def types-fin (check-types types-zip))
-    (def fun-env (create-fun-env (map Binding fun-arg-variables args) env))
-    (interp fun-body fun-env)
+    (def clean-args-fun (resolve-args parsed-fun-args))
+    (cond
+      [(equal? (length args) (length clean-args-fun))
+       (def types-zip (map Cnst args clean-args-fun))
+       (def types-fin (check-types types-zip))
+       (def fun-env (create-fun-env (map Binding fun-arg-variables args) env))
+       (interp fun-body fun-env)]
+      [else (error "incorrect number of arguments, ~a given, ~a expected" (length args) (length clean-args-fun))]
+      )
     )
 
 
