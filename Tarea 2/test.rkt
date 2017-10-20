@@ -196,7 +196,7 @@
 
 
 
-;;;;;;;;;;;;;;;;;;;; INTERP TODO: check exceptions
+;;;;;;;;;;;;;;;;;;;; INTERP
 
 (test (interp (App 'O '()) (extend-env 'O (IndType '() "nat") empty-env))
       (Binding (Binding "O" '()) "nat")
@@ -344,6 +344,24 @@
       "(t) : bool"
       )
 
+(test (run '((deftype bool 
+          (t : bool)
+          (f : bool))
+       (deftype nat 
+          (O : nat)
+          (S : (nat -> nat)))
+       (def not (b : bool) : bool
+                (match b
+                 ((case (t) => (f))
+                  (case (f) => (t)))))
+       (def even (n : nat) (b : bool) : bool 
+               (match n
+                 ((case (O) => b)
+                  (case (S n1) => (even n1 (not b))))))
+       (even (S (S (S (O)))) (t))))
+      "(f) : bool"
+      )
+
 
 (test (run '((deftype bool 
           (t : bool)
@@ -353,4 +371,212 @@
       )
 
 
-      
+;; more tests
+
+(test/exn (run '((deftype nat
+          (O : nat)
+          (S : (nat -> nat)))
+       (def pred (n : bool) : nat
+               (match n
+                 ((case (O) => (O))
+                  (case (S n1) => n1))))
+       (pred (S (O)))))
+      "type error"
+      )
+
+(test/exn (run '((deftype nat
+          (O : nat)
+          (S : (nat -> bool)))
+       (def pred (n : nat) : nat
+               (match n
+                 ((case (O) => (O))
+                  (case (S n1) => n1))))
+       (pred (S (O)))))
+      "type error"
+      )
+
+(test/exn (run '(O))
+      "free identifier"
+      )
+
+(test (run '((deftype bool 
+          (t : bool)
+          (f : bool))
+             (def noarg : bool
+               (f))
+             (noarg)))
+      "(f) : bool"
+      )
+
+(test (run '((deftype day 
+         (monday : day)
+         (tuesday : day)
+         (wednesday : day)
+         (thursday : day)
+         (friday : day)
+         (saturday : day)
+         (sunday : day))
+       (deftype bool
+         (t : bool)
+         (f : bool))
+       (def weekday (d : day) : bool
+         (match d
+           ((case (saturday) => (f))
+            (case (sunday) => (f))
+            (case otherday => (t)))))
+       (weekday (sunday))))
+      "(f) : bool"
+      )
+
+(test (run '((deftype bool 
+          (t : bool)
+          (f : bool))
+             ((fun (x : bool) x) (t))))
+      "(t) : bool"
+      )
+
+(test (run '((deftype bool 
+          (t : bool)
+          (f : bool))
+             ((fun (x : bool) (y : bool) y) (t) (f))))
+      "(f) : bool"
+      )
+
+(test (run '((deftype nat
+          (Zero : nat)
+          (Succ : (nat -> nat)))
+       (def sum (N1 : nat) (N2 : nat) : nat
+               (match N1
+                 ((case (Zero) => N2)
+                  (case (Succ n1) => (match N2
+                                       ((case (Zero) => N1)
+                                        (case (Succ n2) => (Succ (Succ (sum n1 n2)))))
+                                       )))
+                 ))
+       (sum (Succ (Zero)) (Zero))))
+      "(Succ (Zero)) : nat"
+      )
+
+(test (run '((deftype nat
+          (Zero : nat)
+          (Succ : (nat -> nat)))
+       (def sum (N1 : nat) (N2 : nat) : nat
+               (match N1
+                 ((case (Zero) => N2)
+                  (case (Succ n1) => (match N2
+                                       ((case (Zero) => N1)
+                                        (case (Succ n2) => (Succ (Succ (sum n1 n2)))))
+                                       )))
+                 ))
+       (sum (Succ (Zero)) (Succ (Zero)))))
+      "(Succ (Succ (Zero))) : nat"
+      )
+
+(test (run '((deftype nat
+          (Zero : nat)
+          (Succ : (nat -> nat)))
+         (deftype number
+           (zero : number)
+           (one : number)
+           (two : number)
+           (three : number)
+           (four : number)
+           (too-big : number)
+           )
+       (def sum (N1 : nat) (N2 : nat) : nat
+               (match N1
+                 ((case (Zero) => N2)
+                  (case (Succ n1) => (match N2
+                                       ((case (Zero) => N1)
+                                        (case (Succ n2) => (Succ (Succ (sum n1 n2)))))
+                                       )))
+                 ))
+       (def prettyfy (n : nat) (acc : number) : number
+         (match n
+           ((case (Zero) => acc)
+            (case (Succ n1) => (match acc
+                                 ((case (zero) => (prettyfy n1 (one)))
+                                  (case (one) => (prettyfy n1 (two)))
+                                  (case (two) => (prettyfy n1 (three)))
+                                  (case (three) => (prettyfy n1 (four)))
+                                  (case (four) => (too-big)))
+                                 ))
+            )
+           ))
+       (prettyfy (sum (Succ (Zero)) (Succ (Zero))) (zero))))
+      "(two) : number"
+      )
+
+(test (run '((deftype nat
+          (Zero : nat)
+          (Succ : (nat -> nat)))
+         (deftype number
+           (zero : number)
+           (one : number)
+           (two : number)
+           (three : number)
+           (four : number)
+           (too-big : number)
+           )
+       (def sum (N1 : nat) (N2 : nat) : nat
+               (match N1
+                 ((case (Zero) => N2)
+                  (case (Succ n1) => (match N2
+                                       ((case (Zero) => N1)
+                                        (case (Succ n2) => (Succ (Succ (sum n1 n2)))))
+                                       )))
+                 ))
+       (def pretty-aux (n : nat) (acc : number) : number
+         (match n
+           ((case (Zero) => acc)
+            (case (Succ n1) => (match acc
+                                 ((case (zero) => (pretty-aux n1 (one)))
+                                  (case (one) => (pretty-aux n1 (two)))
+                                  (case (two) => (pretty-aux n1 (three)))
+                                  (case (three) => (pretty-aux n1 (four)))
+                                  (case (four) => (too-big)))
+                                 ))
+            )
+           ))
+       (def prettyfy (n : nat) : number
+         (pretty-aux n (zero)))
+       (prettyfy (sum (Succ (Succ (Succ (Zero)))) (Succ (Succ (Succ (Zero))))))))
+      "(too-big) : number"
+      )
+
+(test/exn (run '((deftype nat
+          (Zero : nat)
+          (Succ : (nat -> nat)))
+         (deftype number
+           (zero : number)
+           (one : number)
+           (two : number)
+           (three : number)
+           (four : number)
+           (too-big : number)
+           )
+       (def sum (N1 : nat) (N2 : nat) : nat
+               (match N1
+                 ((case (Zero) => N2)
+                  (case (Succ n1) => (match N2
+                                       ((case (Zero) => N1)
+                                        (case (Succ n2) => (Succ (Succ (sum n1 n2)))))
+                                       )))
+                 ))
+       (def pretty-aux (n : nat) (acc : number) : number
+         (match n
+           ((case (Zero) => acc)
+            (case (Succ n1) => (match acc
+                                 ((case (zero) => (pretty-aux n1 (one)))
+                                  (case (one) => (pretty-aux n1 (two)))
+                                  (case (two) => (pretty-aux n1 (three)))
+                                  (case (three) => (pretty-aux n1 (four)))
+                                  (case (four) => (too-big)))
+                                 ))
+            )
+           ))
+       (def prettyfy (n : nat) : number
+         (pretty-aux n (zero)))
+       (prettyfy (sum (Succ (Succ (Succ (zero)))) (Succ (Succ (Succ (Zero))))))))
+      "type error"
+      )
