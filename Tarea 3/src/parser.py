@@ -1,7 +1,6 @@
 from collections import namedtuple
 from numbers import Number
 
-from pyfpm.matcher import Matcher, match_args
 from sexpdata import loads, Symbol
 
 from Exceptions import WrongSyntaxException
@@ -18,7 +17,6 @@ Set = namedtuple('set', ['id', 'exp'])
 
 
 def parse(s_expr):
-
     def parser(arg_list):
 
         if isinstance(arg_list, Number):
@@ -28,7 +26,6 @@ def parse(s_expr):
 
         n_args = len(arg_list)
         op = arg_list[0].value()
-        print(arg_list)
 
         if n_args == 1:
             if isinstance(arg_list[0], Symbol):
@@ -54,7 +51,6 @@ def parse(s_expr):
 
         raise WrongSyntaxException("Wrong syntax in {}".format(s_expr))
 
-
     try:
         s_expr_list = loads(s_expr)
         return parser(s_expr_list)
@@ -67,4 +63,4 @@ def parse(s_expr):
 NumV = namedtuple('numV', ['n'])
 ClosureV = namedtuple('closureV', ['id', 'body', 'env'])
 
-
+print(Add(Num(1), IF0(Num(2), Num(4), Num(5))) == parse("(+ 1 (if0 2 4 5))"))
