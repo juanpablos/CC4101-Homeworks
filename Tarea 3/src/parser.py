@@ -1,9 +1,10 @@
 from collections import namedtuple
 from numbers import Number
 
+from pyfpm.matcher import Matcher
 from sexpdata import loads, Symbol
 
-from Exceptions import WrongSyntaxException
+from src.Exceptions import WrongSyntaxException
 
 Num = namedtuple('num', 'n')
 Id = namedtuple('id', 's')
@@ -63,4 +64,54 @@ def parse(s_expr):
 NumV = namedtuple('numV', ['n'])
 ClosureV = namedtuple('closureV', ['id', 'body', 'env'])
 
-print(Add(Num(1), IF0(Num(2), Num(4), Num(5))) == parse("(+ 1 (if0 2 4 5))"))
+MTEnv = namedtuple('mtEnv', [])
+AEnv = namedtuple('aEnv', ['id', 'loc', 'env'])
+
+
+def env_lookup(x, env):
+    match = Matcher([
+        ('MTEnv()', lambda: 'identificador libre'),
+        ('AEnv(iid, loc, rest)', lambda iid, loc, rest: loc if iid == x else env_lookup(x, rest)),
+    ])
+    return match(env)
+
+
+def interp(expr, env):
+    def num_plus(n1, n2):
+        return NumV(n1.n + n2.n)
+
+    def sub_min(n1, n2):
+        return NumV(n1.n - n2.n)
+
+    def check_if(c, t, f):
+        if c.n == 0:
+            return t
+        return f
+
+    def check_app(exp, arg):
+        closure = interp(exp, env)
+        new_env = AEnv(closure.id, interp(arg, env), closure.env)
+        return interp(closure.body, new_env)
+
+    match = Matcher([
+        ('Num(n)', lambda n: NumV(n)),
+        ('Add(l, r)', lambda l, r: num_plus(interp(l, env), interp(r, env))),
+        ('Sub(l, r)', lambda l, r: sub_min(interp(l, env), interp(r, env))),
+        ('Fun(iid, body)', lambda iid, body: ClosureV(iid, body, env)),
+        ('IF0(c, t, f)', lambda c, t, f: check_if(interp(c, env), interp(t, env), interp(f, env))),
+        ('Id(s)', lambda s: env_lookup(s, env)),
+        ('App(exp, arg)', lambda exp, arg: check_app(exp, arg)),
+    ])
+
+    return match(expr)
+
+
+print(interp(parse("(with (x 3) (with (f (fun (y) (+ x y))) (with (x 5) (f 4))))"), MTEnv()))
+
+
+a = Num(10)
+b = Add(Num(10),a)
+
+print(b)
+a = a._replace(n=20)
+print(b)
