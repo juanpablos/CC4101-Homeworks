@@ -1,0 +1,2 @@
+class WrongSyntaxException(Exception):
+    pass
