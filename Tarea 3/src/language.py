@@ -266,7 +266,7 @@ def run(prog):
     try:
         res = interp(parse(prog), MTEnv())
         match = Matcher([
-            ('NumV(n)', lambda n: n),
+            ('NumV(n)', lambda n: str(n)),
             ('ClosureV(_, _, _)', lambda: 'Function'),
         ])
 

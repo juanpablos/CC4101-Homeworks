@@ -1,5 +1,6 @@
-import sys
+if __name__ == "__main__":
+    import sys
 
-from src import parser
+    from src.language import run
 
-print(parser.run(sys.argv[1]))
+    print(run(sys.argv[1]))

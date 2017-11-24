@@ -1,6 +1,6 @@
 from unittest import TestCase
 
-from src.parser import parse, Num, Add, App, Fun, Id, Sub, IF0, Seqn, Set
+from src.language import parse, Num, Id, Add, Sub, Fun, App, IF0, Seqn, Set
 
 
 class TestParse(TestCase):
